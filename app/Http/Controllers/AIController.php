@@ -50,13 +50,35 @@ class AiController extends Controller
             }
             $booksText = implode("\n", $booksList);
 
+            // تجميع بيانات بروفايل المستخدم عشان الـ AI يرشح كتب مباشرة بدل ما يسأل عن اهتماماته
+            $profileParts = array_filter([
+                'Interests' => $user->interests ?? null,
+                'Favorite Topics' => $user->favorite_topics ?? null,
+                'Preferred Book Categories' => $user->preferred_book_categories ?? null,
+                'Skills' => $user->skills ?? null,
+                'Educational/Professional Interests' => $user->educational_interests ?? null,
+                'Learning Goals' => $user->learning_goals ?? null,
+            ]);
+
+            if (!empty($profileParts)) {
+                $profileLines = [];
+                foreach ($profileParts as $label => $value) {
+                    $profileLines[] = "{$label}: {$value}";
+                }
+                $profileText = implode("\n", $profileLines);
+            } else {
+                $profileText = 'The user has not set up their profile preferences yet.';
+            }
+
             $systemPrompt = "You are the User Assistant for Smart Library System.\n" .
                 "Categories: {$categoriesList}.\n" .
                 "Available Books Catalog:\n{$booksText}\n\n" .
+                "This User's Profile (use this to personalize recommendations automatically, without asking the user what they like):\n{$profileText}\n\n" .
                 "STRICT RULES:\n" .
                 "1. Answer queries regarding books, authors, availability, categories, and recommendations.\n" .
                 "2. If asked about system statistics or user counts, reply strictly: 'Access Denied: You do not have administrator privileges to view system metrics.'\n" .
-                "3. If asked 'who wrote X' or 'author of X', state the author directly without dumping all books.";
+                "3. If asked 'who wrote X' or 'author of X', state the author directly without dumping all books.\n" .
+                "4. When asked for a recommendation (e.g. 'recommend me a book', 'what should I read'), use the User's Profile above to pick books from the Available Books Catalog that best match their interests/skills/goals — do NOT ask the user what topics they like, since their profile is already known.";
         }
 
         // 2. دمج التعليمات مع سؤال المستخدم في طلب واحد مباشر

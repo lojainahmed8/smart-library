@@ -77,9 +77,37 @@ class HomeController extends Controller
 
             $score = 40;
 
-            // مطابقة القسم
-            if (!empty($bookCategory) && str_contains($userText, $bookCategory)) {
-                $score += 40;
+            // مطابقة القسم (كلمة بكلمة بدل الجملة الكاملة، عشان تتحمل فروق زي الجمع/المفرد)
+            if (!empty($bookCategory)) {
+                $categoryWords = array_unique(array_filter(
+                    explode(' ', preg_replace('/[^a-z0-9]/', ' ', $bookCategory)),
+                    fn($w) => strlen($w) > 2
+                ));
+
+                $userWords = array_unique(array_filter(
+                    explode(' ', preg_replace('/[^a-z0-9]/', ' ', $userText)),
+                    fn($w) => strlen($w) > 2
+                ));
+
+                $categoryMatchCount = 0;
+                foreach ($categoryWords as $cw) {
+                    foreach ($userWords as $uw) {
+                        if (str_contains($cw, $uw) || str_contains($uw, $cw)) {
+                            $categoryMatchCount++;
+                            break;
+                        }
+                    }
+                }
+
+                if (count($categoryWords) > 0) {
+                    $matchRatio = $categoryMatchCount / count($categoryWords);
+
+                    if ($matchRatio >= 0.5) {
+                        $score += 40;
+                    } elseif ($matchRatio > 0) {
+                        $score += 20;
+                    }
+                }
             }
 
             // مطابقة الكلمات المفتاحية
