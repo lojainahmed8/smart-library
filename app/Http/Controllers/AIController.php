@@ -2,107 +2,127 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Book;
-use App\Models\Category;
-use App\Models\User;
 use Illuminate\Http\Request;
+use App\Models\Book;
+use App\Models\User;
+use App\Models\Category;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
-class AIController extends Controller
+class AiController extends Controller
 {
     public function chat(Request $request)
     {
+        $request->validate([
+            'message' => 'required|string',
+        ]);
+
+        $user = Auth::user();
+        $userMessage = trim($request->input('message'));
+
+        // 1. تجميع البيانات
+        $categories = Category::pluck('name')->toArray();
+        $categoriesList = !empty($categories) ? implode(', ', $categories) : 'None';
+
+        if ($user->role === 'admin') {
+            $books = Book::all(['id', 'title', 'author', 'publication_date', 'available_copies']);
+            $usersCount = User::count();
+
+            $booksList = [];
+            foreach ($books as $b) {
+                $booksList[] = "Title: {$b->title} | Author: {$b->author} | Copies: {$b->available_copies}";
+            }
+            $booksText = implode("\n", $booksList);
+
+            $systemPrompt = "You are the Admin Assistant for Smart Library System.\n" .
+                "System Stats: Total Users = {$usersCount}.\n" .
+                "Categories: {$categoriesList}.\n" .
+                "Books Catalog:\n{$booksText}\n\n" .
+                "Instructions:\n" .
+                "- Answer any admin question about users, stats, categories, or books accurately.\n" .
+                "- Match partial title searches directly.";
+        } else {
+            $books = Book::where('available_copies', '>', 0)->get(['title', 'author', 'available_copies']);
+
+            $booksList = [];
+            foreach ($books as $b) {
+                $booksList[] = "Title: {$b->title} | Author: {$b->author} | Copies: {$b->available_copies}";
+            }
+            $booksText = implode("\n", $booksList);
+
+            $systemPrompt = "You are the User Assistant for Smart Library System.\n" .
+                "Categories: {$categoriesList}.\n" .
+                "Available Books Catalog:\n{$booksText}\n\n" .
+                "STRICT RULES:\n" .
+                "1. Answer queries regarding books, authors, availability, categories, and recommendations.\n" .
+                "2. If asked about system statistics or user counts, reply strictly: 'Access Denied: You do not have administrator privileges to view system metrics.'\n" .
+                "3. If asked 'who wrote X' or 'author of X', state the author directly without dumping all books.";
+        }
+
+        // 2. دمج التعليمات مع سؤال المستخدم في طلب واحد مباشر
+        $fullPrompt = $systemPrompt . "\n\nUser Question: " . $userMessage;
+
+        // 3. إرسال الطلب لـ API
         try {
-            $request->validate([
-                'message' => 'required|string|max:1000',
-            ]);
+            $apiKey = env('GEMINI_API_KEY');
 
-            $user = Auth::user();
-
-            if (!$user) {
-                return response()->json(['reply' => 'Unauthorized access.'], 401);
+            if (!$apiKey) {
+                return response()->json(['reply' => 'GEMINI_API_KEY is not configured in .env'], 500);
             }
 
-            $userPrompt = strtolower(trim($request->input('message')));
+            // نجرب أكتر من موديل بالترتيب، لو الأول مزدحم (503) ننتقل تلقائيًا للتاني
+            $modelsToTry = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
 
-            // ==========================================
-            // 1. حظر اليوزر العادي من أسئلة الأدمن (RBAC)
-            // ==========================================
-            $adminOnlyKeywords = [
-                'user', 'users', 'registered', 'metrics', 'count', 
-                'most books', 'highest', 'stats', 'analytics', 
-                'عدد', 'المستخدمين', 'الأكثر'
+            $body = [
+                'contents' => [
+                    [
+                        'parts' => [
+                            ['text' => $fullPrompt]
+                        ]
+                    ]
+                ]
             ];
 
-            if ($user->role !== 'admin') {
-                foreach ($adminOnlyKeywords as $keyword) {
-                    if (str_contains($userPrompt, $keyword)) {
-                        return response()->json([
-                            'reply' => 'Access Denied: You do not have administrator privileges to view system metrics, user data, or library analytics.'
-                        ]);
-                    }
+            $response = null;
+            $lastStatus = null;
+            $lastBody = null;
+
+            foreach ($modelsToTry as $model) {
+                $response = Http::timeout(30)
+                    ->retry(2, 1000)
+                    ->post(
+                        "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}",
+                        $body
+                    );
+
+                if ($response->successful()) {
+                    $reply = $response->json('candidates.0.content.parts.0.text');
+                    return response()->json(['reply' => trim($reply)]);
+                }
+
+                $lastStatus = $response->status();
+                $lastBody = $response->body();
+
+                // لو المشكلة ازدحام (503) أو الموديل مش موجود (404)، جربي الموديل التالي
+                // أي خطأ تاني (زي 400 غلط في الطلب نفسه) وقفي فورًا وارجعي الخطأ
+                if (!in_array($lastStatus, [503, 404, 429])) {
+                    break;
                 }
             }
 
-            // ==========================================
-            // 2. منطق الأدمن (Admin Full Access)
-            // ==========================================
-            if ($user->role === 'admin') {
-                // سؤال: أي تصنيف يحتوي على أكبر عدد من الكتب؟
-                if (str_contains($userPrompt, 'most books') || str_contains($userPrompt, 'highest category') || str_contains($userPrompt, 'top category')) {
-                    $topCategory = Category::withCount('books')
-                        ->orderBy('books_count', 'desc')
-                        ->first();
-
-                    if ($topCategory) {
-                        return response()->json([
-                            'reply' => "Hello Admin {$user->name}! The category with the most books is '{$topCategory->name}' with {$topCategory->books_count} books."
-                        ]);
-                    }
-                }
-
-                // سؤال: عدد المستخدمين والكتب والكتالوج
-                if (str_contains($userPrompt, 'user') || str_contains($userPrompt, 'registered') || str_contains($userPrompt, 'metrics') || str_contains($userPrompt, 'count')) {
-                    $usersCount = User::count();
-                    $booksCount = Book::count();
-                    return response()->json([
-                        'reply' => "Hello Admin {$user->name}! System Overview: Total Users = {$usersCount}, Total Books = {$booksCount}."
-                    ]);
-                }
+            // لو كل الموديلات فشلت
+            if ($lastStatus === 503 || $lastStatus === 429) {
+                return response()->json([
+                    'reply' => 'The AI service is currently busy. Please wait a few seconds and try again.'
+                ], 503);
             }
 
-            // ==========================================
-            // 3. استعلامات الكتب والمواد التعليمية (الجميع)
-            // ==========================================
-            if (str_contains($userPrompt, 'book') || str_contains($userPrompt, 'programming') || str_contains($userPrompt, 'available') || str_contains($userPrompt, 'كتب')) {
-                $books = Book::pluck('title')->toArray();
-                if (!empty($books)) {
-                    $bookList = implode(', ', $books);
-                    return response()->json([
-                        'reply' => "Hello {$user->name}! The available books in our library catalog are: {$bookList}."
-                    ]);
-                }
-                return response()->json(['reply' => "Hello {$user->name}! Currently, no books are available."]);
-            }
+            return response()->json(['reply' => 'API Error: ' . $lastStatus . ' - ' . $lastBody], 500);
 
-            if (str_contains($userPrompt, 'category') || str_contains($userPrompt, 'categories') || str_contains($userPrompt, 'قسم')) {
-                $categories = Category::pluck('name')->toArray();
-                if (!empty($categories)) {
-                    $catList = implode(', ', $categories);
-                    return response()->json([
-                        'reply' => "Available categories in the library: {$catList}."
-                    ]);
-                }
-            }
-
-            // ==========================================
-            // 4. الرد الافتراضي الذكي
-            // ==========================================
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
             return response()->json([
-                'reply' => "Hello {$user->name}! I am your Smart Library Assistant. Ask me about available books, authors, or categories."
-            ]);
-
+                'reply' => 'Connection to the AI service failed. Please check your internet connection and try again in a moment.'
+            ], 503);
         } catch (\Exception $e) {
             return response()->json(['reply' => 'Server Error: ' . $e->getMessage()], 500);
         }

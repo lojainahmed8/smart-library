@@ -24,7 +24,6 @@
                     <input type="text" name="search" value="{{ $search }}" placeholder="Search by title, author, or keywords..." class="w-full border-gray-200 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 text-sm py-2.5 px-4">
                 </div>
                 
-                <!-- Category Dropdown Fix -->
                 <div class="w-full md:w-56">
                     <select name="category" onchange="this.form.submit()" class="w-full border-gray-200 rounded-xl focus:ring-emerald-500 focus:border-emerald-500 text-sm py-2.5 px-4 pr-8 bg-white">
                         <option value="">All Categories</option>
@@ -46,11 +45,16 @@
         <div>
             <h3 class="text-lg font-bold text-gray-800 mb-4">Explore Available Books ({{ $books->count() }} total)</h3>
 
-            <!-- Grid Layout Fixed for 3 Columns -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 @forelse($books as $book)
                     <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition">
                         <div>
+                            @if($book->cover_image)
+                                <div class="w-full h-32 bg-white border border-gray-100 rounded-xl mb-3 flex items-center justify-center overflow-hidden">
+                                    <img src="{{ asset('storage/' . $book->cover_image) }}" alt="{{ $book->title }}" class="max-w-full max-h-full object-contain mx-auto">
+                                </div>
+                            @endif
+
                             <div class="flex items-center justify-between mb-3">
                                 <span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-md uppercase">
                                     {{ $book->category->name ?? 'General' }}
@@ -66,23 +70,33 @@
                         </div>
 
                         <div class="flex items-center justify-between pt-3 border-t border-gray-50">
-                            @if($book->is_borrowed_by_user)
-                                <span class="inline-flex items-center text-xs font-medium text-amber-600">
-                                    <span class="w-2 h-2 rounded-full bg-amber-500 mr-1.5"></span> Borrowed by you
-                                </span>
-                                <button disabled class="bg-gray-100 text-gray-400 text-xs font-semibold px-4 py-2 rounded-xl cursor-not-allowed">
-                                    Borrowed
-                                </button>
-                            @else
+                            <!-- منع الأدمن من الاستعارة إطلاقاً -->
+                            @if(Auth::check() && Auth::user()->role === 'admin')
                                 <span class="inline-flex items-center text-xs font-medium text-emerald-600">
-                                    <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> Available
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> Available ({{ $book->available_copies }} copies)
                                 </span>
-                                <form method="POST" action="{{ route('books.borrow', $book->id) }}">
-                                    @csrf
-                                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition">
-                                        Borrow
+                                <span class="bg-slate-100 text-slate-500 text-xs font-bold px-3 py-1.5 rounded-xl">
+                                    Admin View
+                                </span>
+                            @else 
+                                @if($book->is_borrowed_by_user)
+                                    <span class="inline-flex items-center text-xs font-medium text-amber-600">
+                                        <span class="w-2 h-2 rounded-full bg-amber-500 mr-1.5"></span> Borrowed by you
+                                    </span>
+                                    <button disabled class="bg-gray-100 text-gray-400 text-xs font-semibold px-4 py-2 rounded-xl cursor-not-allowed">
+                                        Borrowed
                                     </button>
-                                </form>
+                                @else
+                                    <span class="inline-flex items-center text-xs font-medium text-emerald-600">
+                                        <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5"></span> Available
+                                    </span>
+                                    <form method="POST" action="{{ route('books.borrow', $book->id) }}">
+                                        @csrf
+                                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-4 py-2 rounded-xl transition">
+                                            Borrow
+                                        </button>
+                                    </form>
+                                @endif
                             @endif
                         </div>
                     </div>

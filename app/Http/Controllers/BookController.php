@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Book;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class BookController extends Controller
 {
@@ -30,9 +31,16 @@ class BookController extends Controller
             'publication_date' => 'nullable|date',
             'available_copies' => 'required|integer|min:0',
             'description' => 'nullable|string',
+            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        Book::create($request->all());
+        $data = $request->except('cover_image');
+
+        if ($request->hasFile('cover_image')) {
+            $data['cover_image'] = $request->file('cover_image')->store('books', 'public');
+        }
+
+        Book::create($data);
 
         return redirect()->route('admin.books.index')->with('success', 'Book created successfully!');
     }
@@ -58,15 +66,30 @@ class BookController extends Controller
             'publication_date' => 'nullable|date',
             'available_copies' => 'required|integer|min:0',
             'description' => 'nullable|string',
+            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        $book->update($request->all());
+        $data = $request->except('cover_image');
+
+        if ($request->hasFile('cover_image')) {
+            // نمسح الصورة القديمة لو موجودة قبل ما نحفظ الجديدة
+            if ($book->cover_image) {
+                Storage::disk('public')->delete($book->cover_image);
+            }
+            $data['cover_image'] = $request->file('cover_image')->store('books', 'public');
+        }
+
+        $book->update($data);
 
         return redirect()->route('admin.books.index')->with('success', 'Book updated successfully!');
     }
 
     public function destroy(Book $book)
     {
+        if ($book->cover_image) {
+            Storage::disk('public')->delete($book->cover_image);
+        }
+
         $book->delete();
         return redirect()->route('admin.books.index')->with('success', 'Book deleted successfully!');
     }

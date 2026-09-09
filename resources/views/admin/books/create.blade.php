@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-admin-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
             {{ __('Add New Book') }}
@@ -8,9 +8,9 @@
     <div class="py-12">
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border border-gray-100">
-                <form action="{{ route('admin.books.store') }}" method="POST">
+                <form action="{{ route('admin.books.store') }}" method="POST" enctype="multipart/form-data">
                     @csrf
-                    
+
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Book Title *</label>
                         <input type="text" name="title" value="{{ old('title') }}" required class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
@@ -57,6 +57,12 @@
                     </div>
 
                     <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Book Cover</label>
+                        <input type="file" name="cover_image" accept="image/*" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        @error('cover_image') <span class="text-rose-600 text-xs mt-1">{{ $message }}</span> @enderror
+                    </div>
+
+                    <div class="mb-6">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
                         <textarea name="description" rows="4" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('description') }}</textarea>
                     </div>
@@ -69,4 +75,4 @@
             </div>
         </div>
     </div>
-</x-app-layout>
+</x-admin-layout>
