@@ -20,7 +20,7 @@ class AiController extends Controller
         $user = Auth::user();
         $userMessage = trim($request->input('message'));
 
-        // 1. تجميع البيانات
+
         $categories = Category::pluck('name')->toArray();
         $categoriesList = !empty($categories) ? implode(', ', $categories) : 'None';
 
@@ -50,7 +50,7 @@ class AiController extends Controller
             }
             $booksText = implode("\n", $booksList);
 
-            // تجميع بيانات بروفايل المستخدم عشان الـ AI يرشح كتب مباشرة بدل ما يسأل عن اهتماماته
+           
             $profileParts = array_filter([
                 'Interests' => $user->interests ?? null,
                 'Favorite Topics' => $user->favorite_topics ?? null,
@@ -81,10 +81,10 @@ class AiController extends Controller
                 "4. When asked for a recommendation (e.g. 'recommend me a book', 'what should I read'), use the User's Profile above to pick books from the Available Books Catalog that best match their interests/skills/goals — do NOT ask the user what topics they like, since their profile is already known.";
         }
 
-        // 2. دمج التعليمات مع سؤال المستخدم في طلب واحد مباشر
+        
         $fullPrompt = $systemPrompt . "\n\nUser Question: " . $userMessage;
 
-        // 3. إرسال الطلب لـ API
+        
         try {
             $apiKey = env('GEMINI_API_KEY');
 
@@ -92,7 +92,7 @@ class AiController extends Controller
                 return response()->json(['reply' => 'GEMINI_API_KEY is not configured in .env'], 500);
             }
 
-            // نجرب أكتر من موديل بالترتيب، لو الأول مزدحم (503) ننتقل تلقائيًا للتاني
+    
             $modelsToTry = ['gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
 
             $body = [
@@ -125,14 +125,14 @@ class AiController extends Controller
                 $lastStatus = $response->status();
                 $lastBody = $response->body();
 
-                // لو المشكلة ازدحام (503) أو الموديل مش موجود (404)، جربي الموديل التالي
-                // أي خطأ تاني (زي 400 غلط في الطلب نفسه) وقفي فورًا وارجعي الخطأ
+                
+                
                 if (!in_array($lastStatus, [503, 404, 429])) {
                     break;
                 }
             }
 
-            // لو كل الموديلات فشلت
+            
             if ($lastStatus === 503 || $lastStatus === 429) {
                 return response()->json([
                     'reply' => 'The AI service is currently busy. Please wait a few seconds and try again.'
