@@ -72,7 +72,7 @@ class BookController extends Controller
         $data = $request->except('cover_image');
 
         if ($request->hasFile('cover_image')) {
-            // نمسح الصورة القديمة لو موجودة قبل ما نحفظ الجديدة
+            
             if ($book->cover_image) {
                 Storage::disk('public')->delete($book->cover_image);
             }
