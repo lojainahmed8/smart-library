@@ -39,13 +39,13 @@ class HomeController extends Controller
         if (Auth::check()) {
             $user = Auth::user();
 
-            // جلب الأقواد الخاصة بالكتب التي استعارها المستخدم حالياً ولم يرجعها
+            
             $borrowedBookIds = Borrowing::where('user_id', $user->id)
                 ->whereNull('returned_at')
                 ->pluck('book_id')
                 ->toArray();
 
-            // تجميع كلمات البروفايل
+            
             $profileParts = array_filter([
                 $user->preferred_book_categories ?? null,
                 $user->favorite_topics ?? null,
@@ -61,7 +61,7 @@ class HomeController extends Controller
             }
         }
 
-        // حساب حالة الاستعارة والنسبة المئوية الحقيقية
+        
         $books = $rawBooks->map(function ($book) use ($userText, $borrowedBookIds) {
             $book->is_borrowed_by_user = in_array($book->id, $borrowedBookIds);
 
@@ -77,7 +77,7 @@ class HomeController extends Controller
 
             $score = 40;
 
-            // مطابقة القسم (كلمة بكلمة بدل الجملة الكاملة، عشان تتحمل فروق زي الجمع/المفرد)
+           
             if (!empty($bookCategory)) {
                 $categoryWords = array_unique(array_filter(
                     explode(' ', preg_replace('/[^a-z0-9]/', ' ', $bookCategory)),
@@ -110,7 +110,7 @@ class HomeController extends Controller
                 }
             }
 
-            // مطابقة الكلمات المفتاحية
+           
             $keywords = array_unique(array_filter(explode(' ', preg_replace('/[^a-z0-9]/', ' ', $userText))));
             $matches = 0;
 
@@ -133,7 +133,6 @@ class HomeController extends Controller
             return $book;
         });
 
-        // ترتيب الكتب حسب نسبة المطابقة
         $books = $books->sortByDesc('match_percentage')->values();
 
         return view('home', compact('books', 'categories', 'search', 'categoryId', 'displayInterests'));
