@@ -9,26 +9,20 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    /**
-     * عرض جميع المستخدمين
-     */
+   
     public function index()
     {
         $users = User::latest()->get();
         return view('admin.users.index', compact('users'));
     }
 
-    /**
-     * فتح صفحة إضافة مستخدم جديد
-     */
+    
     public function create()
     {
         return view('admin.users.create');
     }
 
-    /**
-     * حفظ المستخدم الجديد في قاعدة البيانات
-     */
+   
     public function store(Request $request)
     {
         $request->validate([
@@ -44,10 +38,10 @@ class UserController extends Controller
             'password' => Hash::make($request->password),
             'role' => $request->role,
 
-            // تفعيل الإيميل فوراً لتجنب ظهور NULL
+            
             'email_verified_at' => now(),
 
-            // إعطاء قيم افتراضية للحقول الإضافية لتجنب ظهور NULL في الداتابيز
+            
             'interests' => 'Not specified yet',
             'skills' => 'Not specified yet',
             'learning_goals' => 'Not specified yet',
@@ -56,25 +50,19 @@ class UserController extends Controller
         return redirect()->route('admin.users.index')->with('success', 'User created successfully!');
     }
 
-    /**
-     * عرض تفاصيل مستخدم واحد (Show)
-     */
+   
     public function show(User $user)
     {
         return view('admin.users.show', compact('user'));
     }
 
-    /**
-     * فتح صفحة تعديل مستخدم
-     */
+   
     public function edit(User $user)
     {
         return view('admin.users.edit', compact('user'));
     }
 
-    /**
-     * تحديث بيانات المستخدم
-     */
+   
     public function update(Request $request, User $user)
     {
         $request->validate([
@@ -99,12 +87,10 @@ class UserController extends Controller
         return redirect()->route('admin.users.index')->with('success', 'User updated successfully!');
     }
 
-    /**
-     * حذف مستخدم
-     */
+   
     public function destroy(User $user)
     {
-        // حماية لمنع الأدمن المسجل دخوله من حذف نفسه
+       
         if ($user->id === Auth::id()) {
             return back()->with('error', 'You cannot delete yourself!');
         }
