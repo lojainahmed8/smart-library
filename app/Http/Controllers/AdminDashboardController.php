@@ -13,7 +13,7 @@ class AdminDashboardController extends Controller
     {
         $stats = [
             'total_books'      => Book::count(),
-            'total_copies'     => Book::sum('available_copies'), // تأكدي لو العمود اسمه available_copies غيريه هنا
+            'total_copies'     => Book::sum('available_copies'), 
             'total_categories' => Category::count(),
             'total_users'      => User::count(),
             'total_borrowings' => Borrowing::count(),
