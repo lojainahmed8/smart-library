@@ -7,7 +7,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\BorrowController;
 use App\Http\Controllers\AdminDashboardController;
-use App\Http\Controllers\AIController; // تم إضافة الـ AIController هنا
+use App\Http\Controllers\AIController; 
 use App\Http\Middleware\AdminMiddleware;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -44,7 +44,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/books/{book}/borrow', [BorrowController::class, 'store'])->name('books.borrow');
     Route::post('/borrowings/{borrowing}/return', [BorrowController::class, 'returnBook'])->name('books.return');
 
-    // AI Chatbot Route (المسار المحمي الخاص بالشات بوت)
+    // AI Chatbot Route 
     Route::post('/ai/chat', [AIController::class, 'chat'])->name('ai.chat');
 });
 
